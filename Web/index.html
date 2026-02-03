@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Memory Ultimate</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Creepster&family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Mystery+Quest&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* Variables CSS globales */
+        :root {
+            --font-main: 'Orbitron', sans-serif;
+            --bg: #05000a;
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --accent: #ffae00;
+            --card-back: #111;
+            --glow: 0 0 15px var(--primary);
+        }
+
+        [data-theme="gamer"] {
+            --font-main: 'Press Start 2P', cursive;
+            --bg: #120031;
+            --primary: #39ff14;
+            --secondary: #ff0055;
+            --accent: #00ccff;
+        }
+
+        [data-theme="gothic"] {
+            --font-main: 'Mystery Quest', cursive;
+            --bg: #0d001a;
+            --primary: #9d00ff;
+            --secondary: #4b0082;
+            --accent: #e0e0e0;
+            --card-back: #1a0033;
+            --glow: 0 0 20px #9d00ff;
+        }
+
+        [data-theme="inferno"] {
+            --font-main: 'Creepster', cursive;
+            --bg: #0d0000;
+            --primary: #ff2a00;
+            --secondary: #ffcc00;
+            --accent: #ff0000;
+            --glow: 0 0 25px #ff2a00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            /* Optimización Táctil Android: Evita delay en click y zoom doble tap */
+            touch-action: manipulation; 
+        }
+
+        body {
+            /* Optimización Layout Android: usa dvh para evitar saltos con la barra de navegación */
+            height: 100dvh; 
+            width: 100vw;
+            background: var(--bg);
+            color: var(--primary);
+            font-family: var(--font-main);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* ANIMACIONES DE SHAKE (VIBRACIÓN) */
+        
+        /* Shake para Shuffle (Afecta al contenedor) */
+        @keyframes containerShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotate(-1deg); }
+            75% { transform: translateX(10px) rotate(1deg); }
+        }
+
+        .shake-screen {
+            animation: containerShake 0.4s ease-in-out;
+        }
+
+        /* Shake para Error de Cartas (Usa margin para no romper el transform rotateY de la carta) */
+        @keyframes cardShake {
+            0%, 100% { margin-left: 0; }
+            25% { margin-left: -10px; }
+            75% { margin-left: 10px; }
+        }
+
+        .shake-card {
+            animation: cardShake 0.4s ease-in-out;
+            border-color: red !important; /* Feedback visual extra de error */
+            box-shadow: 0 0 15px red !important;
+        }
+
+        /* Fondo de Partículas */
+        #bg-particles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            background: var(--primary);
+            border-radius: 50%;
+            opacity: 0.2;
+            animation: floatUp 10s infinite linear;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(110vh) scale(0.5); opacity: 0; }
+            100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .screen.active { display: flex; }
+
+        h1 {
+            font-size: clamp(1.8rem, 7vw, 3rem);
+            text-shadow: var(--glow);
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        .theme-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 12px;
+            font-family: var(--font-main);
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn small {
+            font-size: 0.5rem;
+            opacity: 0.7;
+            margin-top: 4px;
+            font-family: sans-serif;
+            text-transform: none;
+            line-height: 1.2;
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: var(--glow);
+        }
+
+        .hud-wrapper {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .hud {
+            display: flex;
+            justify-content: space-around;
+            padding: 12px;
+            font-size: 0.65rem;
+        }
+
+        .hud b { display: block; font-size: 0.9rem; color: var(--accent); }
+
+        #overload-ui {
+            width: 100%;
+            height: 6px;
+            background: #200;
+            display: none;
+        }
+
+        #overload-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            box-shadow: var(--glow);
+            transition: width 0.1s linear;
+        }
+
+        .game-viewport {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 10px;
+        }
+
+        #board-2d {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .scene-3d {
+            width: 220px;
+            height: 220px;
+            perspective: 1000px;
+            display: none;
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            /* Optimización Android: Capa propia para GPU */
+            will-change: transform; 
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid var(--primary);
+            display: grid;
+            backface-visibility: hidden;
+        }
+
+        .face-front { transform: rotateY(0deg) translateZ(110px); }
+        .face-back { transform: rotateY(180deg) translateZ(110px); }
+        .face-right { transform: rotateY(90deg) translateZ(110px); }
+        .face-left { transform: rotateY(-90deg) translateZ(110px); }
+        .face-top { transform: rotateX(90deg) translateZ(110px); }
+        .face-bottom { transform: rotateX(-90deg) translateZ(110px); }
+
+        .grid-3 { grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; }
+        .grid-10 { grid-template-columns: repeat(10, 1fr); gap: 1px; }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: 0.5s;
+            cursor: pointer;
+            /* Optimización Android */
+            will-change: transform; 
+        }
+
+        .card-face {
+            position: absolute;
+            inset: 0;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-back);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            background: var(--primary);
+            color: #000;
+            font-size: 1.4rem;
+        }
+
+        .grid-10 .card-back { font-size: 0.4rem; }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card.matched {
+            opacity: 0;
+            scale: 0;
+            pointer-events: none;
+            transition: 0.6s;
+        }
+
+        .floating-pts {
+            position: fixed;
+            color: #fff;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatPts 1s ease-out forwards;
+            z-index: 1000;
+            text-shadow: 0 0 10px #000;
+        }
+
+        @keyframes floatPts {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        body.focus-mode::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+            background: radial-gradient(circle 90px at var(--mx, 50%) var(--my, 50%), transparent 0%, rgba(0, 0, 0, 1) 100%);
+        }
+
+        .footer {
+            padding: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .nav-3d {
+            display: none;
+            grid-template-columns: repeat(3, 45px);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .nav-btn {
+            height: 45px;
+            background: #111;
+            border: 1px solid var(--primary);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .vol-cont {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            background: #000;
+            padding: 10px;
+            border-radius: 30px;
+            border: 1px solid var(--primary);
+            box-shadow: var(--glow);
+            transition: width 0.3s;
+            width: 45px;
+            overflow: hidden;
+            height: 45px;
+        }
+
+        .vol-cont:hover { width: 150px; }
+
+        #vol-slider {
+            width: 80px;
+            margin-left: 10px;
+            cursor: pointer;
+            accent-color: var(--primary);
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .vol-cont:hover #vol-slider { opacity: 1; }
+
+        #score-list {
+            width: 100%;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.7rem;
+        }
+
+        .score-item span { color: var(--accent); font-weight: bold; }
+    </style>
+</head>
+
+<body data-theme="neon">
+
+    <div id="bg-particles"></div>
+
+    <div id="start-overlay"
+        style="position:fixed; inset:0; background:#000; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <h1 style="font-family: 'Press Start 2P'; font-size: 0.9rem; color: #0ff; margin-bottom: 30px;">Neon Memory Ultimate</h1>
+        <button class="btn" style="padding:20px; font-size:1rem; width: 250px;" onclick="engine.initAudio()">INICIAR</button>
+    </div>
+
+    <div class="vol-cont">
+        <span id="mute-btn" onclick="audio.toggleMute()" style="cursor:pointer; font-size: 1.2rem;">🔊</span>
+        <input type="range" id="vol-slider" min="0" max="100" value="30" oninput="audio.setVol(this.value)">
+    </div>
+
+    <div id="app">
+        <div id="menu" class="screen active">
+            <h1>NEON<br>ULTIMATE</h1>
+            <div class="theme-selector">
+                <button class="btn" style="width: 70px; padding: 8px;" onclick="engine.setTheme('neon')">NEON</button>
+                <button class="btn" style="width: 70px; padding: 8px;" onclick="engine.setTheme('gamer')">GAME</button>
+                <button class="btn" style="width: 70px; padding: 8px;" onclick="engine.setTheme('gothic')">GOTH</button>
+                <button class="btn" style="width: 70px; padding: 8px;" onclick="engine.setTheme('inferno')">HELL</button>
+            </div>
+            <div class="btn-container">
+                <button class="btn" onclick="engine.start('classic')">CLASSIC<small>Parejas estándar 2D</small></button>
+                <button class="btn" onclick="engine.start('overload')">OVERLOAD<small>Shuffle cada 10s</small></button>
+                <button class="btn" onclick="engine.start('focus')">FOCUS<small>Visión linterna</small></button>
+                <button class="btn" onclick="engine.start('cube3')">3D CUBE<small>Cubo 3x3 giratorio</small></button>
+                <button class="btn" onclick="engine.start('cube10')">MEGA CUBE<small>600 cartas 10x10</small></button>
+                <button class="btn" onclick="engine.start('overload3d')">HELL CUBE<small>Cubo 10x10 + Shuffle</small></button>
+            </div>
+            <button class="btn" onclick="engine.showRanking()" style="margin-top:10px; width:100%;">RECORDS Y ESTADÍSTICAS</button>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div class="hud-wrapper">
+                <div class="hud">
+                    <div>PUNTOS<b id="score-val">0</b></div>
+                    <div>COMBO<b id="combo-val">x1</b></div>
+                    <div>TIEMPO<b id="timer-val">00:00</b></div>
+                    <div>META<b id="meta-val">0/0</b></div>
+                </div>
+                <div id="overload-ui">
+                    <div id="overload-bar"></div>
+                </div>
+            </div>
+
+            <div class="game-viewport" id="v-port">
+                <div id="board-2d"></div>
+                <div class="scene-3d" id="viewport-3d">
+                    <div class="cube" id="cube">
+                        <div class="cube-face face-front" id="f-front"></div>
+                        <div class="cube-face face-back" id="f-back"></div>
+                        <div class="cube-face face-right" id="f-right"></div>
+                        <div class="cube-face face-left" id="f-left"></div>
+                        <div class="cube-face face-top" id="f-top"></div>
+                        <div class="cube-face face-bottom" id="f-bottom"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="nav-3d" id="ctrl-3d">
+                    <div></div><button class="nav-btn" onclick="engine.rotate(0, 90)">▲</button>
+                    <div></div>
+                    <button class="nav-btn" onclick="engine.rotate(-90, 0)">◀</button>
+                    <button class="nav-btn" onclick="engine.rotate(90, 0)">▼</button>
+                    <button class="nav-btn" onclick="engine.rotate(0, -90)">▶</button>
+                </div>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button class="btn" onclick="engine.exit()" style="flex:1">MENU</button>
+                    <button class="btn" onclick="engine.restart()" style="flex:1">RESET</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="ranking" class="screen">
+            <h1>TOP SCORES</h1>
+            <div id="score-list"></div>
+            <button class="btn" onclick="engine.exit()" style="margin-top: 15px;">VOLVER</button>
+        </div>
+    </div>
+
+    <div id="victory-modal"
+        style="position:fixed; inset:0; background:rgba(0,0,0,0.95); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:2000;">
+        <h2 style="font-size:2rem; text-shadow: var(--glow);">MISION CUMPLIDA</h2>
+        <div id="final-stats" style="margin:20px 0; line-height:1.8; color:#fff; font-size: 0.9rem;"></div>
+        <button class="btn" onclick="engine.exit()" style="padding:15px 40px; font-size: 0.9rem;">CONTINUAR</button>
+    </div>
+
+    <script>
+    /*
+    Neon Memory Ultimate - Game Engine
+    © 2026 brauliolc.developer
+    */
+
+    class AudioSystem {
+        constructor() {
+            this.ctx = null;
+            this.theme = 'neon';
+            this.isMuted = false;
+            this.vol = 0.3;
+            this.scales = {
+                neon: [220, 261, 329, 392, 440],
+                gamer: [523, 587, 659, 783, 880],
+                gothic: [110, 123, 146, 164, 196],
+                inferno: [41, 48, 55, 61, 82]
+            };
+        }
+        init() {
+            if (this.ctx) return;
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.master = this.ctx.createGain();
+            this.master.gain.value = this.vol;
+            this.master.connect(this.ctx.destination);
+            this.startLoop();
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) this.ctx.suspend(); else this.ctx.resume();
+            });
+        }
+        setVol(v) {
+            this.vol = v / 100;
+            if (!this.isMuted && this.master) {
+                this.master.gain.setTargetAtTime(this.vol, this.ctx.currentTime, 0.05);
+            }
+        }
+        toggleMute() {
+            this.isMuted = !this.isMuted;
+            if (this.master) this.master.gain.value = this.isMuted ? 0 : this.vol;
+            document.getElementById('mute-btn').innerText = this.isMuted ? '🔇' : '🔊';
+        }
+        startLoop() {
+            let step = 0;
+            setInterval(() => {
+                if (!this.ctx || this.isMuted || this.ctx.state !== 'running') return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                osc.type = this.theme === 'inferno' ? 'sawtooth' : (this.theme === 'gamer' ? 'square' : 'sine');
+                g.gain.setValueAtTime(0.03, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.frequency.setValueAtTime(this.scales[this.theme][step % 5], now);
+                osc.connect(g); g.connect(this.master);
+                osc.start(); osc.stop(now + 0.3);
+                step++;
+            }, 250);
+        }
+        playMatch() {
+            if (!this.ctx || this.isMuted || this.ctx.state !== 'running') return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+            g.gain.setValueAtTime(0.1, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(g); g.connect(this.master);
+            osc.start(); osc.stop(now + 0.2);
+        }
+    }
+
+    const audio = new AudioSystem();
+
+    const engine = {
+        mode: 'classic', theme: 'neon', score: 0, time: 0, matched: 0, total: 0, combo: 1,
+        flipped: [], isLocked: false, rotX: -20, rotY: -20,
+        records: JSON.parse(localStorage.getItem('ult_pro_records_gold_final_v2')) || {},
+
+        initAudio() { audio.init(); document.getElementById('start-overlay').style.display = 'none'; this.createParticles(); },
+
+        setTheme(t) {
+            this.theme = t;
+            document.body.setAttribute('data-theme', t);
+            audio.theme = t;
+            this.createParticles();
+        },
+
+        createParticles() {
+            const container = document.getElementById('bg-particles');
+            container.innerHTML = '';
+            const color = getComputedStyle(document.body).getPropertyValue('--primary');
+            for (let i = 0; i < 30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.background = color;
+                p.style.left = Math.random() * 100 + 'vw';
+                p.style.width = p.style.height = (Math.random() * 5 + 2) + 'px';
+                p.style.animationDuration = (Math.random() * 5 + 5) + 's';
+                p.style.animationDelay = Math.random() * 5 + 's';
+                container.appendChild(p);
+            }
+        },
+
+        start(mode) {
+            this.mode = mode; this.score = 0; this.time = 0; this.matched = 0; this.combo = 1; this.flipped = [];
+            this.rotX = -20; this.rotY = -20;
+            const cube = document.getElementById('cube');
+            if (cube) cube.style.transform = `rotateX(${this.rotX}deg) rotateY(${this.rotY}deg)`;
+
+            document.getElementById('menu').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            document.body.classList.toggle('focus-mode', mode === 'focus');
+
+            const is3D = mode.includes('cube') || mode.includes('3d');
+            document.getElementById('board-2d').style.display = is3D ? 'none' : 'grid';
+            document.getElementById('viewport-3d').style.display = is3D ? 'block' : 'none';
+            document.getElementById('ctrl-3d').style.display = is3D ? 'grid' : 'none';
+            document.getElementById('overload-ui').style.display = (mode.includes('overload')) ? 'block' : 'none';
+
+            this.render();
+            this.startTimer();
+            if (mode.includes('overload')) this.startOverload();
+        },
+
+        render() {
+            const sets = {
+                neon: ["⚡", "💎", "🚀", "🔮", "🧬", "🌙", "💠", "🪐"],
+                gamer: ["👾", "🍄", "⚔️", "🛡️", "🪙", "⭐️", "🎮", "💾"],
+                gothic: ["🕷️", "⚰️", "🦇", "👻", "💀", "🕯️", "🕸️", "🧪"],
+                inferno: ["🔥", "👹", "👺", "🔱", "🌋", "☄️", "💣", "⛓️"]
+            };
+            let icons = sets[this.theme];
+            let size = 4, faces = 1;
+
+            if (this.mode === 'cube3') { size = 3; faces = 6; }
+            else if (this.mode === 'cube10' || this.mode === 'overload3d') { size = 10; faces = 6; }
+
+            // Lógica expandida para asegurar 300 parejas únicas en el cubo 10x10
+            if (faces > 1) {
+                icons = [
+                    "💀", "🔥", "🧛", "👹", "👺", "🦇", "⚰️", "🕯️", "🕸️", "🍷", "🐍", "🦂", "🌋", "💣", "⚔️", "⛓️", "👁️", "🧠", "🌑", "🔱", "🚩", "🃏", "🎭", "💎", "💍", "🧤", "🧣", "🧥", "🧢", "🎒",
+                    "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦅", "🦉", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞",
+                    "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒", "🍑", "🥝", "🍅", "🥑", "🍆", "🥔", "🥕", "🌽", "🌶️", "🥒", "🥦", "🍄", "🥜", "🍞", "🥐", "🥖", "🥨", "🥞", "🧀", "🍖",
+                    "⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🥊", "🥋", "🥅", "🏹", "⛳", "⛸️", "🎣", "🎽", "🎿", "🛷", "🥌", "🎯", "🎱", "🎮", "🎲",
+                    "🚗", "🚕", "🚙", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚐", "🚚", "🚛", "🚜", "🛴", "🚲", "🛵", "🏍️", "🚨", "🚔", "🚍", "🚘", "🚖", "🚡", "🚠", "🚟", "🚃", "🚋", "🚞", "🚝", "🚄",
+                    "⌚", "📱", "📲", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️", "🕹️", "🗜️", "💽", "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽️", "🎞️", "📞", "☎️", "📟", "📠", "📺", "📻", "🎙️", "🎚️",
+                    "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️", "✝️", "☪️", "🕉️", "☸️", "✡️", "🔯", "🕎", "☯️", "☦️", "🛐",
+                    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "☺", "😚", "😙", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫",
+                    "👶", "👧", "🧒", "👦", "👩", "🧑", "👨", "👵", "🧓", "👴", "👲", "👳", "🧕", "👮", "👷", "💂", "🕵", "👩‍⚕️", "👨‍⚕️", "👩‍🌾", "👨‍🌾", "👩‍🍳", "👨‍🍳", "👩‍🎓", "👨‍🎓", "👩‍🎤", "👨‍🎤", "👩‍🏫", "👨‍🏫",
+                    "🌍", "🌎", "🌏", "🌐", "🗺️", "🗾", "🧭", "🏔️", "⛰️", "🌋", "🗻", "🏕️", "🏖️", "🏜️", "🏝️", "🏞️", "🏟️", "🏛️", "🏗️", "🧱", "🏘️", "🏚️", "🏠", "🏡", "🏢", "🏣", "🏤", "🏥", "🏦", "🏨"
+                ];
+            }
+
+            this.total = (size * size * faces) / 2;
+            document.getElementById('meta-val').innerText = `0/${this.total}`;
+            document.getElementById('score-val').innerText = '0';
+            document.getElementById('combo-val').innerText = 'x1';
+
+            let deck = [];
+            // Aseguramos tener suficientes iconos para el total de parejas
+            while (deck.length < this.total) deck = deck.concat(icons);
+            
+            // Creamos las parejas exactas: tomamos 'total' iconos y los duplicamos
+            deck = [...deck.slice(0, this.total), ...deck.slice(0, this.total)].sort(() => 0.5 - Math.random());
+
+            if (faces === 1) {
+                const b = document.getElementById('board-2d'); b.innerHTML = '';
+                deck.forEach(icon => b.appendChild(this.createCard(icon)));
+            } else {
+                const ids = ['f-front', 'f-back', 'f-right', 'f-left', 'f-top', 'f-bottom'];
+                let idx = 0;
+                ids.forEach(id => {
+                    const f = document.getElementById(id);
+                    // grid-${size} se encargará de hacer la cuadrícula 10x10 si size es 10
+                    f.className = `cube-face face-${id.split('-')[1]} grid-${size}`;
+                    f.innerHTML = '';
+                    for (let i = 0; i < size * size; i++) f.appendChild(this.createCard(deck[idx++]));
+                });
+            }
+        },
+
+        createCard(icon) {
+            const c = document.createElement('div');
+            c.className = 'card';
+            c.innerHTML = `<div class="card-face"></div><div class="card-face card-back">${icon}</div>`;
+            c.onclick = (e) => this.flip(c, icon, e);
+            return c;
+        },
+
+        flip(card, icon, event) {
+            if (this.isLocked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+            card.classList.add('flipped');
+
+            const x = event.touches ? event.touches[0].clientX : event.clientX;
+            const y = event.touches ? event.touches[0].clientY : event.clientY;
+            this.flipped.push({ card, icon, x, y });
+
+            if (this.flipped.length === 2) {
+                this.isLocked = true;
+                const [a, b] = this.flipped;
+                if (a.icon === b.icon) {
+                    setTimeout(() => {
+                        audio.playMatch();
+                        a.card.classList.add('matched'); b.card.classList.add('matched');
+
+                        const speedBonus = Math.max(1, 2 - (this.time / (this.total * 6)));
+                        const pts = Math.round(100 * this.combo * speedBonus);
+
+                        this.score += pts;
+                        this.matched++;
+                        this.showFloatingPts(pts, b.x, b.y);
+                        this.combo++;
+
+                        document.getElementById('score-val').innerText = this.score;
+                        document.getElementById('combo-val').innerText = `x${this.combo}`;
+                        document.getElementById('meta-val').innerText = `${this.matched}/${this.total}`;
+                        this.flipped = []; this.isLocked = false;
+
+                        if (this.matched === this.total) this.victory();
+                    }, 500);
+                } else {
+                    // LOGICA DE SHAKE POR ERROR
+                    setTimeout(() => {
+                        a.card.classList.add('shake-card');
+                        b.card.classList.add('shake-card');
+                        
+                        setTimeout(() => {
+                            a.card.classList.remove('shake-card');
+                            b.card.classList.remove('shake-card');
+                            a.card.classList.remove('flipped'); 
+                            b.card.classList.remove('flipped');
+                            this.combo = 1;
+                            document.getElementById('combo-val').innerText = `x1`;
+                            this.flipped = []; 
+                            this.isLocked = false;
+                        }, 400); 
+                    }, 500);
+                }
+            }
+        },
+
+        showFloatingPts(pts, x, y) {
+            const el = document.createElement('div');
+            el.className = 'floating-pts';
+            el.style.left = x + 'px'; el.style.top = y + 'px';
+            el.innerHTML = `+${pts} ${this.combo > 2 ? '🔥' : ''}`;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        },
+
+        rotate(y, x) {
+            this.rotX += x; this.rotY += y;
+            document.getElementById('cube').style.transform = `rotateX(${this.rotX}deg) rotateY(${this.rotY}deg)`;
+        },
+
+        startOverload() {
+            clearInterval(this.overInt);
+            const bar = document.getElementById('overload-bar');
+            let p = 0;
+            this.overInt = setInterval(() => {
+                p += 1;
+                bar.style.width = p + "%";
+                if (p >= 100) { this.shuffle(); p = 0; }
+            }, 100);
+        },
+
+        shuffle() {
+            const container = document.getElementById('v-port'); 
+            container.classList.add('shake-screen');
+            setTimeout(() => container.classList.remove('shake-screen'), 400);
+
+            const is3D = this.mode.includes('cube') || this.mode === 'overload3d';
+            const containers = is3D ? document.querySelectorAll('.cube-face') : [document.getElementById('board-2d')];
+            let all = [];
+            containers.forEach(c => all = all.concat(Array.from(c.children)));
+            all.sort(() => Math.random() - 0.5);
+
+            let idx = 0;
+            containers.forEach(c => {
+                const size = (this.mode === 'cube3') ? 3 : (this.mode === 'classic' || this.mode === 'overload' || this.mode === 'focus' ? 4 : 10);
+                const limit = size * size;
+                for (let i = 0; i < limit; i++) if (all[idx]) c.appendChild(all[idx++]);
+            });
+        },
+
+        startTimer() {
+            clearInterval(this.timerInt);
+            this.timerInt = setInterval(() => {
+                this.time++;
+                const m = Math.floor(this.time / 60).toString().padStart(2, '0');
+                const s = (this.time % 60).toString().padStart(2, '0');
+                document.getElementById('timer-val').innerText = `${m}:${s}`;
+            }, 1000);
+        },
+
+        victory() {
+            clearInterval(this.timerInt); clearInterval(this.overInt);
+            const timeStr = document.getElementById('timer-val').innerText;
+            const recKey = this.mode;
+            if (!this.records[recKey] || this.score > this.records[recKey].score) {
+                this.records[recKey] = { score: this.score, time: timeStr };
+                localStorage.setItem('ult_pro_records_gold_final_v2', JSON.stringify(this.records));
+            }
+            document.getElementById('final-stats').innerHTML = `MODO: ${this.mode.toUpperCase()}<br>TIEMPO: ${timeStr}<br>PUNTOS: ${this.score}`;
+            document.getElementById('victory-modal').style.display = 'flex';
+        },
+
+        exit() {
+            clearInterval(this.timerInt); clearInterval(this.overInt);
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('menu').classList.add('active');
+            document.getElementById('victory-modal').style.display = 'none';
+            document.body.classList.remove('focus-mode');
+        },
+
+        restart() { this.start(this.mode); },
+
+        showRanking() {
+            document.getElementById('menu').classList.remove('active');
+            document.getElementById('ranking').classList.add('active');
+            const list = document.getElementById('score-list');
+            const allModes = ['classic', 'overload', 'focus', 'cube3', 'cube10', 'overload3d'];
+
+            const modeDisplayNames = {
+                'classic': 'MODO CLÁSICO',
+                'overload': 'OVERLOAD 2D',
+                'focus': 'MODO FOCUS',
+                'cube3': 'CUBO 3x3',
+                'cube10': 'MEGA CUBO 10x10',
+                'overload3d': 'HELL CUBE'
+            };
+
+            let html = '';
+            allModes.forEach(m => {
+                const rec = this.records[m] || { score: 0, time: '--:--' };
+                html += `
+                    <div class="score-item">
+                        <span>${modeDisplayNames[m]}</span>
+                        <b>${rec.score} pts (${rec.time})</b>
+                    </div>
+                `;
+            });
+            list.innerHTML = html;
+        }
+    };
+
+    const updateCoords = e => {
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        document.body.style.setProperty('--mx', x + 'px');
+        document.body.style.setProperty('--my', y + 'px');
+    };
+    window.addEventListener('mousemove', updateCoords);
+    window.addEventListener('touchstart', updateCoords, { passive: true });
+    window.addEventListener('touchmove', updateCoords, { passive: true });
+</script>
+
+
+    <footer style="position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%); font-size: 10px; opacity: 0.4; pointer-events: none;">
+        © 2026 brauliolc.developer — Neon Memory Ultimate
+    </footer>
+</body>
+</html>
